@@ -1,0 +1,55 @@
+sudo cat user_config.yaml 
+services:
+  ollama-amd-apu:
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 32768M
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: 11.0.0 (also try 11.5.2 and 11.0.2) 
+      NVIDIA_VISIBLE_DEVICES: void
+      OLLAMA_DEBUG: '0'
+      OLLAMA_FLASH_ATTENTION: 'true'
+      OLLAMA_KV_CACHE_TYPE: q8_0
+      ROCR_VISIBLE_DEVICES: '0'
+      TZ: Europe/Paris
+    group_add:
+    - 568
+    hostname: ollama-amd-apu
+    image: ghcr.io/rjmalagon/ollama-linux-amd-apu:latest
+    platform: linux/amd64
+    ports:
+    - host_ip: 192.168.1.1
+      mode: ingress
+      protocol: tcp
+      published: 11434
+      target: 11434
+    privileged: true
+    pull_policy: missing
+    restart: 'no'
+    stdin_open: false
+    tty: false
+    volumes:
+    - bind:
+        create_host_path: false
+        propagation: rprivate
+      read_only: false
+      source: /dev/dri
+      target: /dev/dri
+      type: bind
+    - bind:
+        create_host_path: false
+        propagation: rprivate
+      read_only: false
+      source: /dev/kfd
+      target: /dev/kfd
+      type: bind
+    - bind:
+        create_host_path: false
+        propagation: rprivate
+      read_only: false
+      source: /mnt/ZRAID1/docker/ollama-amd-apu/ollama-data
+      target: /root/.ollama
+      type: bind
+volumes: {}
