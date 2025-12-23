@@ -3,14 +3,15 @@
 ARG FLAVOR=${TARGETARCH}
 ARG PARALLEL=8
 
-ARG ROCMVERSION=6.4.4
+ARG ROCM6VERSION=6.4.4
+ARG ROCM7VERSION=7.1.1
 ARG JETPACK5VERSION=r35.4.1
 ARG JETPACK6VERSION=r36.4.0
 ARG CMAKEVERSION=3.31.2
 ARG VULKANVERSION=1.4.321.1
 
 # We require gcc v10 minimum.  v10.3 has regressions, so the rockylinux 8.5 AppStream has the latest compatible version
-FROM --platform=linux/amd64 rocm/dev-almalinux-8:${ROCMVERSION}-complete AS base-amd64
+FROM --platform=linux/amd64 rocm/dev-almalinux-8:${ROCM6VERSION}-complete AS base-amd64
 RUN yum install -y yum-utils \
     && yum-config-manager --add-repo https://dl.rockylinux.org/vault/rocky/8.5/AppStream/\$basearch/os/ \
     && rpm --import https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-8 \
@@ -29,6 +30,15 @@ RUN cp -r /${VULKANVERSION}/x86_64/include/* /usr/local/include/ \
     && cp -r /${VULKANVERSION}/x86_64/lib/* /usr/local/lib
 ENV PATH=/${VULKANVERSION}/x86_64/bin:$PATH
 
+FROM --platform=linux/amd64 rocm/dev-almalinux-8:${ROCM7VERSION}-complete AS base_rocm7-amd64
+RUN yum install -y yum-utils \
+    && yum-config-manager --add-repo https://dl.rockylinux.org/vault/rocky/8.5/AppStream/\$basearch/os/ \
+    && rpm --import https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-8 \
+    && dnf install -y yum-utils ccache gcc-toolset-10-gcc-10.2.1-8.2.el8 gcc-toolset-10-gcc-c++-10.2.1-8.2.el8 gcc-toolset-10-binutils-2.35-11.el8 \
+    && dnf install -y ccache \
+    && yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
+ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+
 FROM --platform=linux/arm64 almalinux:8 AS base-arm64
 # install epel-release for ccache
 RUN yum install -y yum-utils epel-release \
@@ -37,6 +47,13 @@ RUN yum install -y yum-utils epel-release \
 ENV CC=clang CXX=clang++
 
 FROM base-${TARGETARCH} AS base
+ARG CMAKEVERSION
+RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSION}/cmake-${CMAKEVERSION}-linux-$(uname -m).tar.gz | tar xz -C /usr/local --strip-components 1
+COPY CMakeLists.txt CMakePresets.json .
+COPY ml/backend/ggml/ggml ml/backend/ggml/ggml
+ENV LDFLAGS=-s
+
+FROM base_rocm7-${TARGETARCH} AS base_rocm7
 ARG CMAKEVERSION
 RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSION}/cmake-${CMAKEVERSION}-linux-$(uname -m).tar.gz | tar xz -C /usr/local --strip-components 1
 COPY CMakeLists.txt CMakePresets.json .
@@ -58,7 +75,7 @@ RUN dnf install -y cuda-toolkit-${CUDA11VERSION//./-}
 ENV PATH=/usr/local/cuda-11/bin:$PATH
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'CUDA 11' -DOLLAMA_RUNNER_DIR="cuda_v11" \
+    cmake --preset 'CUDA 11' \
         && cmake --build --parallel ${PARALLEL} --preset 'CUDA 11' \
         && cmake --install build --component CUDA --strip --parallel ${PARALLEL}
 
@@ -68,7 +85,7 @@ RUN dnf install -y cuda-toolkit-${CUDA12VERSION//./-}
 ENV PATH=/usr/local/cuda-12/bin:$PATH
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'CUDA 12' -DOLLAMA_RUNNER_DIR="cuda_v12"\
+    cmake --preset 'CUDA 12' \
         && cmake --build --parallel ${PARALLEL} --preset 'CUDA 12' \
         && cmake --install build --component CUDA --strip --parallel ${PARALLEL}
 
@@ -79,7 +96,7 @@ RUN dnf install -y cuda-toolkit-${CUDA13VERSION//./-}
 ENV PATH=/usr/local/cuda-13/bin:$PATH
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'CUDA 13' -DOLLAMA_RUNNER_DIR="cuda_v13" \
+    cmake --preset 'CUDA 13' \
         && cmake --build --parallel ${PARALLEL} --preset 'CUDA 13' \
         && cmake --install build --component CUDA --strip --parallel ${PARALLEL}
 
@@ -88,8 +105,17 @@ FROM base AS rocm-6
 ENV PATH=/opt/rocm/hcc/bin:/opt/rocm/hip/bin:/opt/rocm/bin:/opt/rocm/hcc/bin:$PATH
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'ROCm 6' -DOLLAMA_RUNNER_DIR="rocm" \
+    cmake --preset 'ROCm 6' \
         && cmake --build --parallel ${PARALLEL} --preset 'ROCm 6' \
+        && cmake --install build --component HIP --strip --parallel ${PARALLEL}
+RUN rm -f dist/lib/ollama/rocm/rocblas/library/*gfx90[06]*
+
+FROM base_rocm7 AS rocm-7
+ENV PATH=/opt/rocm/hcc/bin:/opt/rocm/hip/bin:/opt/rocm/bin:/opt/rocm/hcc/bin:$PATH
+ARG PARALLEL
+RUN --mount=type=cache,target=/root/.ccache \
+    cmake --preset 'ROCm 7' \
+        && cmake --build --parallel ${PARALLEL} --preset 'ROCm 7' \
         && cmake --install build --component HIP --strip --parallel ${PARALLEL}
 RUN rm -f dist/lib/ollama/rocm/rocblas/library/*gfx90[06]*
 
@@ -101,7 +127,7 @@ COPY CMakeLists.txt CMakePresets.json .
 COPY ml/backend/ggml/ggml ml/backend/ggml/ggml
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'JetPack 5' -DOLLAMA_RUNNER_DIR="cuda_jetpack5" \
+    cmake --preset 'JetPack 5' \
         && cmake --build --parallel ${PARALLEL} --preset 'JetPack 5' \
         && cmake --install build --component CUDA --strip --parallel ${PARALLEL}
 
@@ -113,15 +139,15 @@ COPY CMakeLists.txt CMakePresets.json .
 COPY ml/backend/ggml/ggml ml/backend/ggml/ggml
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'JetPack 6' -DOLLAMA_RUNNER_DIR="cuda_jetpack6" \
+    cmake --preset 'JetPack 6' \
         && cmake --build --parallel ${PARALLEL} --preset 'JetPack 6' \
         && cmake --install build --component CUDA --strip --parallel ${PARALLEL}
 
 FROM base AS vulkan
 RUN --mount=type=cache,target=/root/.ccache \
-    cmake --preset 'Vulkan' -DOLLAMA_RUNNER_DIR="vulkan" \
+    cmake --preset 'Vulkan' \
         && cmake --build --parallel --preset 'Vulkan' \
-        && cmake --install build --component Vulkan --strip --parallel 8 
+        && cmake --install build --component Vulkan --strip --parallel 8
 
 
 FROM base AS build
@@ -153,6 +179,7 @@ COPY --from=jetpack-6 dist/lib/ollama/ /lib/ollama/
 
 FROM scratch AS rocm
 COPY --from=rocm-6 dist/lib/ollama /lib/ollama
+COPY --from=rocm-7 dist/lib/ollama /lib/ollama
 COPY --from=vulkan  dist/lib/ollama  /lib/ollama
 
 FROM ${FLAVOR} AS archive
@@ -162,7 +189,7 @@ COPY --from=build /bin/ollama /bin/ollama
 
 FROM ubuntu:25.10 AS default
 RUN apt-get update \
-    && apt-get install -y ca-certificates rocminfo libroctx64-4 libvulkan1 \
+    && apt-get install -y ca-certificates rocminfo libvulkan1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=archive /bin /usr/bin

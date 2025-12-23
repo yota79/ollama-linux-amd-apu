@@ -54,6 +54,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ml/backend/ggml/ggml/src/ggml-cp
 
 add_compile_definitions(NDEBUG GGML_VERSION=0x0 GGML_COMMIT=0x0)
 
+# Define GGML version variables for shared library SOVERSION
+# These are required by ggml/src/CMakeLists.txt for proper library versioning
+set(GGML_VERSION_MAJOR 0)
+set(GGML_VERSION_MINOR 0)
+set(GGML_VERSION_PATCH 0)
+set(GGML_VERSION "${GGML_VERSION_MAJOR}.${GGML_VERSION_MINOR}.${GGML_VERSION_PATCH}")
+
 set(GGML_CPU ON)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ml/backend/ggml/ggml/src)
 set_property(TARGET ggml PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -124,7 +131,7 @@ if(CMAKE_HIP_COMPILER)
         )
         install(RUNTIME_DEPENDENCY_SET rocm
                 DIRECTORIES ${HIP_BIN_INSTALL_DIR} ${HIP_LIB_INSTALL_DIR}
-                PRE_INCLUDE_REGEXES hipblas rocblas amdhip64 rocsolver amd_comgr hsa-runtime64 rocsparse tinfo rocprofiler-register drm drm_amdgpu numa elf
+                PRE_INCLUDE_REGEXES hipblas rocblas amdhip64 rocsolver roctx64 rocroller amd_comgr hsa-runtime64 rocsparse tinfo rocprofiler-register drm drm_amdgpu numa elf
                 PRE_EXCLUDE_REGEXES ".*"
                 POST_EXCLUDE_REGEXES "system32"
             RUNTIME DESTINATION ${OLLAMA_INSTALL_DIR} COMPONENT HIP

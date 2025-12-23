@@ -38,6 +38,7 @@ var (
 
 	// Note: add newer models at the top of the list to test them first
 	ollamaEngineChatModels = []string{
+		"ministral-3",
 		"qwen3-coder:30b",
 		"gpt-oss:20b",
 		"gemma3n:e2b",
@@ -167,6 +168,7 @@ var (
 		"medllama2",
 		"megadolphin",
 		"minicpm-v",
+		"ministral-3",
 		"mistral-large",
 		"mistral-nemo",
 		"mistral-openorca",
@@ -259,6 +261,23 @@ var (
 		"paraphrase-multilingual",
 		"snowflake-arctic-embed",
 		"snowflake-arctic-embed2",
+	}
+	libraryToolsModels = []string{
+		"qwen3-vl",
+		"gpt-oss:20b",
+		"gpt-oss:120b",
+		"qwen3",
+		"llama3.1",
+		"llama3.2",
+		"mistral",
+		"qwen2.5",
+		"qwen2",
+		"ministral-3",
+		"mistral-nemo",
+		"mistral-small",
+		"mixtral:8x22b",
+		"qwq",
+		"granite3.3",
 	}
 
 	blueSkyPrompt   = "why is the sky blue? Be brief but factual in your reply"

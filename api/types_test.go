@@ -298,6 +298,44 @@ func TestToolFunction_UnmarshalJSON(t *testing.T) {
 	}
 }
 
+func TestToolFunctionParameters_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    ToolFunctionParameters
+		expected string
+	}{
+		{
+			name: "simple object with string property",
+			input: ToolFunctionParameters{
+				Type:     "object",
+				Required: []string{"name"},
+				Properties: map[string]ToolProperty{
+					"name": {Type: PropertyType{"string"}},
+				},
+			},
+			expected: `{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`,
+		},
+		{
+			name: "no required",
+			input: ToolFunctionParameters{
+				Type: "object",
+				Properties: map[string]ToolProperty{
+					"name": {Type: PropertyType{"string"}},
+				},
+			},
+			expected: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := json.Marshal(test.input)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, string(data))
+		})
+	}
+}
+
 func TestToolCallFunction_IndexAlwaysMarshals(t *testing.T) {
 	fn := ToolCallFunction{
 		Name:      "echo",
@@ -462,6 +500,107 @@ func TestThinking_UnmarshalJSON(t *testing.T) {
 					assert.Equal(t, test.expectedThinking.Value, req.Think.Value)
 				}
 			}
+		})
+	}
+}
+
+func TestToolPropertyNestedProperties(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected ToolProperty
+	}{
+		{
+			name: "nested object properties",
+			input: `{
+				"type": "object",
+				"description": "Location details",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "Street address"
+					},
+					"city": {
+						"type": "string",
+						"description": "City name"
+					}
+				}
+			}`,
+			expected: ToolProperty{
+				Type:        PropertyType{"object"},
+				Description: "Location details",
+				Properties: map[string]ToolProperty{
+					"address": {
+						Type:        PropertyType{"string"},
+						Description: "Street address",
+					},
+					"city": {
+						Type:        PropertyType{"string"},
+						Description: "City name",
+					},
+				},
+			},
+		},
+		{
+			name: "deeply nested properties",
+			input: `{
+				"type": "object",
+				"description": "Event",
+				"properties": {
+					"location": {
+						"type": "object",
+						"description": "Location",
+						"properties": {
+							"coordinates": {
+								"type": "object",
+								"description": "GPS coordinates",
+								"properties": {
+									"lat": {"type": "number", "description": "Latitude"},
+									"lng": {"type": "number", "description": "Longitude"}
+								}
+							}
+						}
+					}
+				}
+			}`,
+			expected: ToolProperty{
+				Type:        PropertyType{"object"},
+				Description: "Event",
+				Properties: map[string]ToolProperty{
+					"location": {
+						Type:        PropertyType{"object"},
+						Description: "Location",
+						Properties: map[string]ToolProperty{
+							"coordinates": {
+								Type:        PropertyType{"object"},
+								Description: "GPS coordinates",
+								Properties: map[string]ToolProperty{
+									"lat": {Type: PropertyType{"number"}, Description: "Latitude"},
+									"lng": {Type: PropertyType{"number"}, Description: "Longitude"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var prop ToolProperty
+			err := json.Unmarshal([]byte(tt.input), &prop)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, prop)
+
+			// Round-trip test: marshal and unmarshal again
+			data, err := json.Marshal(prop)
+			require.NoError(t, err)
+
+			var prop2 ToolProperty
+			err = json.Unmarshal(data, &prop2)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, prop2)
 		})
 	}
 }
