@@ -50,10 +50,11 @@ func TestDeepSeekParser(t *testing.T) {
 			expectedCalls: []api.ToolCall{
 				{
 					Function: api.ToolCallFunction{
-						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Index: 0,
+						Name:  "get_weather",
+						Arguments: testArgs(map[string]any{
 							"location": "Paris",
-						},
+						}),
 					},
 				},
 			},
@@ -67,17 +68,18 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"location": "Paris",
-						},
+						}),
 					},
 				},
 				{
 					Function: api.ToolCallFunction{
-						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Index: 1,
+						Name:  "get_weather",
+						Arguments: testArgs(map[string]any{
 							"location": "London",
-						},
+						}),
 					},
 				},
 			},
@@ -97,10 +99,10 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "process_data",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"items":  []interface{}{"item1", "item2"},
 							"config": map[string]interface{}{"enabled": true, "threshold": 0.95},
-						},
+						}),
 					},
 				},
 			},
@@ -115,9 +117,9 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"location": "Paris",
-						},
+						}),
 					},
 				},
 			},
@@ -162,9 +164,9 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"location": "Tokyo",
-						},
+						}),
 					},
 				},
 			},
@@ -191,10 +193,10 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "search",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"query":    "北京天气",
 							"language": "中文",
-						},
+						}),
 					},
 				},
 			},
@@ -220,10 +222,10 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "execute_command",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"command": "ls && echo \"done\"",
 							"path":    "/home/user",
-						},
+						}),
 					},
 				},
 			},
@@ -244,7 +246,7 @@ func TestDeepSeekParser(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name:      "ping",
-						Arguments: api.ToolCallFunctionArguments{},
+						Arguments: api.NewToolCallFunctionArguments(),
 					},
 				},
 			},
@@ -276,7 +278,7 @@ func TestDeepSeekParser(t *testing.T) {
 				t.Errorf("Thinking mismatch (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tt.expectedCalls, calls); diff != "" {
+			if diff := cmp.Diff(tt.expectedCalls, calls, argsComparer); diff != "" {
 				t.Errorf("Tool calls mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -313,9 +315,9 @@ func TestDeepSeekParser_Streaming(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "get_weather",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"location": "Paris",
-						},
+						}),
 					},
 				},
 			},
@@ -342,7 +344,7 @@ func TestDeepSeekParser_Streaming(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name:      "test",
-						Arguments: api.ToolCallFunctionArguments{},
+						Arguments: api.NewToolCallFunctionArguments(),
 					},
 				},
 			},
@@ -375,10 +377,10 @@ func TestDeepSeekParser_Streaming(t *testing.T) {
 				{
 					Function: api.ToolCallFunction{
 						Name: "calc",
-						Arguments: api.ToolCallFunctionArguments{
+						Arguments: testArgs(map[string]any{
 							"x": float64(42),
 							"y": float64(24),
-						},
+						}),
 					},
 				},
 			},
@@ -414,7 +416,7 @@ func TestDeepSeekParser_Streaming(t *testing.T) {
 				t.Errorf("Thinking mismatch (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tt.expectedCalls, allCalls); diff != "" {
+			if diff := cmp.Diff(tt.expectedCalls, allCalls, argsComparer); diff != "" {
 				t.Errorf("Tool calls mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -469,7 +471,7 @@ func TestDeepSeekParser_Init(t *testing.T) {
 
 	returnedTools := parser.Init(tools, nil, &api.ThinkValue{Value: true})
 
-	if diff := cmp.Diff(tools, returnedTools); diff != "" {
+	if diff := cmp.Diff(tools, returnedTools, toolsComparer); diff != "" {
 		t.Errorf("Init() returned tools mismatch (-want +got):\n%s", diff)
 	}
 
@@ -492,9 +494,9 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "get_weather",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"location": "Paris",
-					},
+					}),
 				},
 			},
 		},
@@ -504,10 +506,10 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "process_data",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"items":  []interface{}{"a", "b"},
 						"config": map[string]interface{}{"enabled": true},
-					},
+					}),
 				},
 			},
 		},
@@ -517,7 +519,7 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name:      "ping",
-					Arguments: api.ToolCallFunctionArguments{},
+					Arguments: api.NewToolCallFunctionArguments(),
 				},
 			},
 		},
@@ -527,9 +529,9 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "获取天气",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"城市": "北京",
-					},
+					}),
 				},
 			},
 		},
@@ -539,10 +541,10 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "execute",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"command": "ls && echo \"done\"",
 						"path":    "/home/user",
-					},
+					}),
 				},
 			},
 		},
@@ -552,11 +554,11 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "calculate",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"x":       3.14,
 						"y":       float64(42),
 						"enabled": true,
-					},
+					}),
 				},
 			},
 		},
@@ -577,9 +579,9 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 			expected: api.ToolCall{
 				Function: api.ToolCallFunction{
 					Name: "",
-					Arguments: api.ToolCallFunctionArguments{
+					Arguments: testArgs(map[string]any{
 						"arg": "value",
-					},
+					}),
 				},
 			},
 		},
@@ -606,7 +608,7 @@ func TestDeepSeek3Parser_parseToolCallContent(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.expected, result); diff != "" {
+			if diff := cmp.Diff(tt.expected, result, argsComparer); diff != "" {
 				t.Errorf("parseToolCallContent() mismatch (-want +got):\n%s", diff)
 			}
 		})
